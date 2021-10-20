@@ -1,7 +1,7 @@
 ---
 title: "Code-along, Week 05: Big Pumpkins"
 author: "Alex Homer"
-date: "14 October 2021"
+date: "21 October 2021"
 output: github_document
 editor_options: 
   chunk_output_type: console
