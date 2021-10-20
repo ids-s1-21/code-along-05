@@ -9,7 +9,6 @@ editor_options:
 
 ```{r load-packages, message = FALSE}
 library(tidyverse)
-library(scales)
 ```
 
 ## Read data

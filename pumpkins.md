@@ -5,7 +5,6 @@ Alex Homer
 
 ``` r
 library(tidyverse)
-library(scales)
 ```
 
 ## Read data
