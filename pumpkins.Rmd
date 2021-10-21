@@ -9,7 +9,20 @@ editor_options:
 
 ```{r load-packages, message = FALSE}
 library(tidyverse)
+library(scales)
 library(ggridges)
+
+#This document also requires the `emo` package, for emoji.  To install it if
+#necessary, make sure `devtools` is installed, then run
+# devtools::install_github("hadley/emo")
+#For projects created from 16th October 2021, this should be already installed
+#if you're working in the course space on RStudio Cloud
+```
+
+```{r setup, echo = FALSE}
+lightbulb <- function(x) {
+  paste(emo::ji("bulb"), " *", x, "* ", emo::ji("bulb"), sep = "")
+}
 ```
 
 ## Read data
@@ -23,22 +36,55 @@ pumpkins <- read_csv(
 
 ## Which countries?
 
+Let's find out which countries submit the most entries to these competitions.  Our first attempt at making a bar graph will... not look good!  But it will give us some information about the data.
+
 ```{r which-countries, message = FALSE}
 pumpkins %>%
   ggplot(aes(y = country)) +
   geom_bar()
+```
 
+Yikes.  Firstly, there seem to be a lot of nonsense "countries" which begin either with numbers or with brackets, which we can inspect by running the code below in R itself (it's set not to evaluate in this document).
+
+```{r view-nonsense, eval = FALSE}
+pumpkins %>%
+  filter(!str_detect(country, "^[[:alpha:]]")) %>%
+  #Finds countries that don't start with a letter %>%
+  View()
+```
+
+These rows just have the same thing repeated, which appears to be some sort of incorrectly-parsed header row.  They all begin with digits, so we can exclude such "countries" when we clean the dataset.
+
+We can also notice by using the `glimpse` function...
+```{r glimpse}
+glimpse(pumpkins)
+```
+
+...that some of the numeric columns have been parsed as character, because when `readr` was reading in the data they still had the text strings in them.  We need to change those to numeric, and we should use the `parse_number` function from `readr` to do this because it handles the thousands-separating commas nicely ^[`parse_number` assumes you are in the US, which, like the UK, uses `.` to separate the integer and fraction parts of a number, and `,` to separate thousands in groups of three.  You can use `parse_number`'s `locale` argument, together with the `locale` *function*, to specify an alternate behaviour.] (whereas base R's `as.numeric` function produces `NA`s for these).
+
+There are a couple of other changes we might like to make: "Unknown country" would be handled more sensibly by R if we had that as `NA`, and typicaly datasets call the country north of Belgium and west of Germany "Netherlands" instead of "The Netherlands".
+
+```{r cleanup}
 pumpkins_cleaned <- pumpkins %>%
   filter(!str_detect(country, "^\\d")) %>%
+  #Removes country names that start with a digit
   mutate(
     country = case_when(
       country == "Unknown country" ~ NA_character_,
+      #`NA` here produces an error!
       country == "The Netherlands" ~ "Netherlands",
       TRUE                         ~ country
     ),
-    weight_lbs = parse_number(weight_lbs)
+    weight_lbs = parse_number(weight_lbs),
+    ott = parse_number(ott),
+    est_weight = parse_number(est_weight),
+    pct_chart = parse_number(pct_chart)
   ) 
+```
 
+Right, let's have another go at that bar chart.
+
+```{r which-countries-2}
 pumpkins_cleaned %>%
   filter(!is.na(country)) %>%
   mutate(
@@ -47,14 +93,40 @@ pumpkins_cleaned %>%
       fct_rev()
   ) %>%
   ggplot(aes(y = country)) +
-  geom_bar()
+  geom_bar() +
+  labs(
+    x = "Number of entries",
+    y = "Country",
+    title = "All my life…",
+    subtitle = "… there's pumpkins in America",
+    caption = "Source: BigPumpkins.com/GPC"
+  ) +
+  scale_x_continuous(labels = comma) +
+  #This is the `comma` function from the `scales` package.
+  #We could also write
+  # scale_x_continuous(labels = label_comma()) +
+  #which more easily lets us set any further options, should we wish to
+  theme_minimal() +
+  theme(axis.title.y = element_text(margin = margin(r = 6))) #Nudge label left
 ```
 
+`r lightbulb("What happens if we swap the last two lines of code around?  (Taking care to put the plus in the right place, of course.)  What does this tell us about the interaction between \x60theme_minimal\x60 and \x60theme\x60?")`
+
+Seems like the US is the prime country for the growing of these pumpkins.  But which states?  Let's find out.
+
 ## Which states?
-```{r which-states}
-pumpkins_usa <- pumpkins_cleaned %>%
+
+All fifty states are represented in this dataset.
+
+```{r state_count}
+pumpkins_usa <- pumpkins_cleaned %>% #Remember to use the cleaned dataset!
   filter(country == "United States")
 
+pumpkins_usa %>%
+  summarise(num_states = n_distinct(state_prov))
+```
+
+```{r which-states}
 pumpkins_usa %>%
   mutate(
     state_prov = state_prov %>%
