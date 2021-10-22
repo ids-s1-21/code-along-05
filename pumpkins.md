@@ -349,6 +349,10 @@ pumpkins_shape %>%
 
 ![](pumpkins_files/figure-gfm/heatmap-1.png)<!-- -->
 
+PS If this isn’t enough giant pumpkin content for you—and of course it
+isn’t—please enjoy this [YouTube video of elephants crushing
+pumpkins](https://www.youtube.com/watch?v=IXJg29MNJNM).
+
 [1] `parse_number` assumes you are in the US, which, like the UK, uses
 `.` to separate the integer and fraction parts of a number, and `,` to
 separate thousands in groups of three. You can use `parse_number`’s

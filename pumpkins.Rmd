@@ -268,7 +268,6 @@ pumpkins_shape %>%
   theme_minimal()
 ```
 
-
-
+PS If this isn't enough giant pumpkin content for you---and of course it isn't---please enjoy this [YouTube video of elephants crushing pumpkins](https://www.youtube.com/watch?v=IXJg29MNJNM).
 
 
