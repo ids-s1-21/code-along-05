@@ -364,7 +364,12 @@ be a function—specifically, the function used to generate the labels for
 the graph from the data. `ggplot` and `scales` provide various built-in
 functions for this, one of which is `comma`. Because the argument is the
 function itself, not the *output* of a function, you don’t put the
-brackets.
+brackets. But sometimes you want to generate a function for specifying
+labels in a particular way; this is where the functions like
+`label_comma` come in. This is a function that we *do* need to actually
+run—and the output of `label_comma` is itself a function, which is used
+for labelling. So we use the brackets because we want the function that
+is the *output* of `label_comma`.
 
 [3] This is allowed because the `forcats` package is published under a
 copyright licence that lets you do this, as long as you give appropriate
