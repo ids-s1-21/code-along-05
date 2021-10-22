@@ -200,7 +200,8 @@ pumpkins_usa %>%
     subtitle = "Number of giant pumpkins entered into competitions by state",
     caption = "Source: BigPumpkins.com/GPC"
   ) +
-  scale_x_continuous(labels = comma) +
+  scale_x_continuous(labels = comma, expand = expansion(mult = c(0.05, 0.1))) +
+  #`expand` argument to make full "2,000" label appear
   theme_minimal() +
   theme(axis.title.y = element_text(margin = margin(r = 6))) #Nudge label left
 ```
@@ -251,7 +252,7 @@ pumpkins_usa %>%
     subtitle = "Number of giant pumpkins entered into competitions by state",
     caption = "Source: BigPumpkins.com/GPC"
   ) +
-  scale_x_continuous(labels = comma) +
+  scale_x_continuous(labels = comma, expand = expansion(mult = c(0.05, 0.1))) +
   theme_minimal() +
   theme(axis.title.y = element_text(margin = margin(r = 6))) #Nudge label left
 ```
@@ -284,16 +285,16 @@ pumpkins_usa %>%
   ) %>%
   ggplot(aes(x = weight_lbs, y = state_prov)) +
   geom_density_ridges(alpha = 0.7) +
+  scale_x_continuous(label = comma) +
   labs(
     x = "Weight of pumpkin (lbs)",
     y = "State",
     title = "The modal pumpkin doesn't vary much, but the tail gets heavier",
     subtitle = "Density of giant pumpkin weights by state (states with 50+ pumpkins shown)",
     caption = "Source: BigPumpkins.com/GPC"
-  )
+  ) +
+  theme_minimal()
 ```
-
-    ## Picking joint bandwidth of 123
 
 ![](pumpkins_files/figure-gfm/biggest-weight-1.png)<!-- -->
 
