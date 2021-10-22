@@ -5,8 +5,16 @@ Alex Homer
 
 ``` r
 library(tidyverse)
+library(here)
 library(scales)
 library(ggridges)
+library(sf)
+library(morecats)
+#This package is one maintained by me.  To install it if necessary, make sure
+#`devtools` is installed, then run
+# devtools::install_github("AlexJHomer/morecats")
+#For projects created from 22nd October 2021, this should be already installed
+#if you're working in the course space on RStudio Cloud
 
 #This document also requires the `emo` package, for emoji.  To install it if
 #necessary, make sure `devtools` is installed, then run
@@ -147,6 +155,11 @@ pumpkins_cleaned %>%
 care to put the plus in the right place, of course.) What does this tell
 us about the interaction between `theme_minimal` and `theme`?* 💡
 
+There’s a subtlety above in whether you put the brackets after the end
+of the function name in the `labels` argument. It’s a bit technical, so
+it might be easier just to remember when you do and don’t have to use
+it, but if you’re interested the rationale is in a footnote [2].
+
 Seems like the US is the prime country for the growing of these
 pumpkins. But which states? Let’s find out.
 
@@ -167,6 +180,9 @@ pumpkins_usa %>%
     ##        <int>
     ## 1         50
 
+So that’s going to be too many to comfortably show on our graph—the
+`fct_lump` functions are useful for this.
+
 ``` r
 pumpkins_usa %>%
   mutate(
@@ -176,10 +192,79 @@ pumpkins_usa %>%
       fct_rev()
   ) %>%
   ggplot(aes(y = state_prov)) +
-  geom_bar()
+  geom_bar() +
+  labs(
+    x = "Number of entries",
+    y = "State",
+    title = "\"America's Dairyland\" is also America's Pumpkinland, apparently",
+    subtitle = "Number of giant pumpkins entered into competitions by state",
+    caption = "Source: BigPumpkins.com/GPC"
+  ) +
+  scale_x_continuous(labels = comma) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(margin = margin(r = 6))) #Nudge label left
 ```
 
 ![](pumpkins_files/figure-gfm/which-states-1.png)<!-- -->
+
+How I got here… I first tried `fct_lump_lowfreq`, which lumps together
+the least frequent variables such that the “Other” category is still
+smallest. Unfortunately, that lumps together very little.
+
+``` r
+pumpkins_usa %>%
+  mutate(state_prov = fct_lump_lowfreq(state_prov)) %>%
+  summarise(n_values = n_distinct(state_prov))
+```
+
+    ## # A tibble: 1 x 1
+    ##   n_values
+    ##      <int>
+    ## 1       50
+
+In fact, it lumps together absolutely nothing.
+
+What I wanted was for the “Other” category to at least be smaller than
+the *largest* value. There’s no function in `forcats` for this. So I
+used `fct_lump_n`, which lets me specify how many levels get kept
+separate; then I could find the right value of `n` by trial and error.
+
+But it annoyed me that this function didn’t exist, so I went into the
+`forcats` source code, modified it to make a function that did what I
+want [3], and put it on GitHub (I called it `morecats`). This then
+provides a function called `fct_lump_lowfreq2`, which does exactly this.
+
+``` r
+pumpkins_usa %>%
+  mutate(
+    state_prov = state_prov %>%
+      fct_infreq() %>%
+      fct_lump_lowfreq2() %>% #From `morecats`
+      fct_rev()
+  ) %>%
+  ggplot(aes(y = state_prov)) +
+  geom_bar() +
+  labs(
+    x = "Number of entries",
+    y = "State",
+    title = "\"America's Dairyland\" is also America's Pumpkinland, apparently",
+    subtitle = "Number of giant pumpkins entered into competitions by state",
+    caption = "Source: BigPumpkins.com/GPC"
+  ) +
+  scale_x_continuous(labels = comma) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(margin = margin(r = 6))) #Nudge label left
+```
+
+![](pumpkins_files/figure-gfm/which-states-2-1.png)<!-- -->
+
+## Weight of pumpkins
+
+Let’s look at the distribution of the weight of pumpkins. We can do a
+density plot for this, but it’s not very meaningful if you only have a
+few data points for a given state. So we’ll filter out the states
+without many pumpkins. We’ll then do a ridge plot, sorting the states by
+their mean pumpkin weight.
 
 ``` r
 large_states <- pumpkins_usa %>%
@@ -198,15 +283,85 @@ pumpkins_usa %>%
       fct_reorder(weight_lbs, mean)
   ) %>%
   ggplot(aes(x = weight_lbs, y = state_prov)) +
-  geom_density_ridges(alpha = 0.7)
+  geom_density_ridges(alpha = 0.7) +
+  labs(
+    x = "Weight of pumpkin (lbs)",
+    y = "State",
+    title = "The modal pumpkin doesn't vary much, but the tail gets heavier",
+    subtitle = "Density of giant pumpkin weights by state (states with 50+ pumpkins shown)",
+    caption = "Source: BigPumpkins.com/GPC"
+  )
 ```
 
     ## Picking joint bandwidth of 123
 
 ![](pumpkins_files/figure-gfm/biggest-weight-1.png)<!-- -->
 
+As the subtitle says, it seems like all states have a similar
+concentration of pumpkin weights in these competitions, but the most
+successful states on average have a few outlying large pumpkins.
+
+💡 *What would happen if we sorted by median weight?* 💡
+
+💡 *We didn’t have time to do this in the Code-Along, but the dataset has
+both estimated and measured pumpkin weights in it. Are there any
+analyses we could do on this, to see how good the esimation is?* 💡
+
+## Mapping the pumpkins
+
+One thing that’s really easy to do in R with the right packages is make
+maps, so I thought I’d show you how to do that in case it’s useful for
+your projects. The package `sf` is useful for this.
+
+You also need a shape file for the map you want to produce. There’s one
+in the data folder, which we can read with `geom_sf`.
+
+``` r
+states_sf <- read_sf("data/cb_2018_us_state_20m.shp")
+```
+
+Let’s now make a map showing how many pumpkins were entered in each
+state. Plotting maps across the 180° line of longitude is hard, so lets
+remove Alaska and Hawaii for now (feel free to ask me if you want help
+with this sort of thing).
+
+``` r
+pumpkins_count <- pumpkins_usa %>%
+  count(state_prov) %>%
+  filter(!(state_prov %in% c("Alaska", "Hawaii")))
+
+pumpkins_shape <- states_sf %>%
+  #We need to start with the shape data when joining
+  right_join(pumpkins_count, by = c("NAME" = "state_prov"))
+
+pumpkins_shape %>%
+  ggplot(aes(fill = n, geometry = geometry)) +
+  geom_sf() +
+  labs(
+    fill = "No. pumpkins\nentered",
+    title = "Map of the United States",
+    subtitle = "States coloured by number of giant pumpkins entered in competitions",
+    caption = "Source: BigPumpkins.com/GPC"
+  ) +
+  scale_fill_viridis_c() +
+  theme_minimal()
+```
+
+![](pumpkins_files/figure-gfm/heatmap-1.png)<!-- -->
+
 [1] `parse_number` assumes you are in the US, which, like the UK, uses
 `.` to separate the integer and fraction parts of a number, and `,` to
 separate thousands in groups of three. You can use `parse_number`’s
 `locale` argument, together with the `locale` *function*, to specify an
 alternate behaviour.
+
+[2] So the `labels` argument inside `scale_x_continuous` needs itself to
+be a function—specifically, the function used to generate the labels for
+the graph from the data. `ggplot` and `scales` provide various built-in
+functions for this, one of which is `comma`. Because the argument is the
+function itself, not the *output* of a function, you don’t put the
+brackets.
+
+[3] This is allowed because the `forcats` package is published under a
+copyright licence that lets you do this, as long as you give appropriate
+credit.
